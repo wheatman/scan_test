@@ -51,6 +51,9 @@ all:  basic
 basic: $(SRC)
 	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG $(SRC) $(LDFLAGS) -o basic
 
+prefetch_test: prefetch_test.cpp
+	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG prefetch_test.cpp $(LDFLAGS) -o prefetch_test
+
 
 clean:
 	rm -f run run_profile run.dump run_basic run.gcda run_basic.dump *.profdata *.profraw test_out/* test basic opt
