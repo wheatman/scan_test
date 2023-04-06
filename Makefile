@@ -54,6 +54,9 @@ basic: $(SRC)
 prefetch_test: prefetch_test.cpp
 	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG prefetch_test.cpp $(LDFLAGS) -o prefetch_test
 
+seporation_test: seporation_test.cpp
+	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG seporation_test.cpp $(LDFLAGS) -o seporation_test
+
 
 clean:
 	rm -f run run_profile run.dump run_basic run.gcda run_basic.dump *.profdata *.profraw test_out/* test basic opt
