@@ -51,6 +51,9 @@ all:  basic
 basic: $(SRC)
 	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG $(SRC) $(LDFLAGS) -o basic
 
+pcm: run_with_pcm.cpp
+	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG run_with_pcm.cpp $(LDFLAGS) -L./pcm/build/lib -l:libpcm.so  -o basic_pcm
+
 prefetch_test: prefetch_test.cpp
 	$(CXX) $(CFLAGS) $(DEFINES) -DNDEBUG prefetch_test.cpp $(LDFLAGS) -o prefetch_test
 

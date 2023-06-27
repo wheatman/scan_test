@@ -91,9 +91,9 @@ void test_all(size_t total_byte_count, const std::vector<size_t> &block_sizes,
       uint64_t start = get_usecs();
       auto total = sum(data, order, block_size);
       uint64_t end = get_usecs();
-      printf("%lu, %lu, %lu, %lu, %lu\n", total_byte_count,
+      printf("%lu, %lu, %lu, %lu, %lu, %lu\n", total_byte_count,
              block_size * sizeof(T), seperation_amount * block_size * sizeof(T),
-             end - start, uint64_t(total));
+             end - start, uint64_t(total), order.size());
     }
   }
 }

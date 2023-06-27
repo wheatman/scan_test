@@ -6,8 +6,13 @@
 #include <limits>
 #include <random>
 #include <string>
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <vector>
+
+#include "pcm/src/cpucounters.h"
+#include "pcm/src/utils.h"
+#include "pcm_helpers.h"
 
 #if CILK == 1
 #include <cilk/cilk.h>
@@ -22,15 +27,13 @@ static inline uint64_t get_usecs() {
 }
 
 template <class T> std::vector<T> create_random_data(size_t n) {
-
-  std::vector<T> v(n);
-  cilk_for(size_t i = 0; i < n; i++) { v[i] = i; }
-
-  return v;
+  std::vector<T> vec(n);
+  cilk_for(size_t i = 0; i < n; i++) { vec[i] = i; }
+  return vec;
 }
 
 template <class T>
-T sum(const std::vector<T> &data, const std::vector<size_t> order,
+T sum(const std::vector<T> &data, const std::vector<int> &order,
       size_t block_size) {
   Reducer_sum<T> total = 0;
   cilk_for(size_t j = 0; j < order.size(); j++) {
@@ -45,9 +48,9 @@ T sum(const std::vector<T> &data, const std::vector<size_t> order,
   return total;
 }
 
-std::vector<size_t> create_order(size_t total_size, size_t block_size) {
+std::vector<int> create_order(size_t total_size, size_t block_size) {
   size_t order_length = total_size / block_size;
-  std::vector<size_t> order(order_length);
+  std::vector<int> order(order_length);
   cilk_for(size_t i = 0; i < order_length; i++) { order[i] = i * block_size; }
 
   std::random_device rd;
@@ -60,14 +63,55 @@ std::vector<size_t> create_order(size_t total_size, size_t block_size) {
 template <class T> void test_all(size_t total_byte_count) {
   size_t total_element_count = total_byte_count / sizeof(T);
   auto data = create_random_data<T>(total_element_count);
+  auto pcm = pcm::PCM::getInstance();
+  pcm->resetPMU();
+
+  const pcm::PCM::ErrorCode status =
+      pcm->program(pcm::PCM::DEFAULT_EVENTS, nullptr, false);
+
+  switch (status) {
+  case pcm::PCM::Success:
+    break;
+  case pcm::PCM::MSRAccessDenied:
+    std::cerr
+        << "Access to Intel(r) Performance Counter Monitor has denied (no MSR "
+           "or PCI CFG space access).\n";
+    exit(EXIT_FAILURE);
+  case pcm::PCM::PMUBusy:
+    std::cerr
+        << "Access to Intel(r) Performance Counter Monitor has denied "
+           "(Performance Monitoring Unit is occupied by other application). "
+           "Try to stop the application that uses PMU.\n";
+    std::cerr
+        << "Alternatively you can try running PCM with option -r to reset "
+           "PMU.\n";
+    exit(EXIT_FAILURE);
+  default:
+    std::cerr << "Access to Intel(r) Performance Counter Monitor has denied "
+                 "(Unknown error).\n";
+    exit(EXIT_FAILURE);
+  }
+
+  pcm::print_cpu_details();
+
+  std::vector<pcm::CoreCounterState> cstates1, cstates2;
+  std::vector<pcm::SocketCounterState> sktstate1, sktstate2;
+  pcm::SystemCounterState sstate1, sstate2;
   for (size_t block_size = 1; block_size <= total_element_count;
        block_size *= 2) {
     auto order = create_order(total_element_count, block_size);
     uint64_t start = get_usecs();
+    pcm->getAllCounterStates(sstate1, sktstate1, cstates1);
+
     auto total = sum(data, order, block_size);
+
+    pcm->getAllCounterStates(sstate2, sktstate2, cstates2);
     uint64_t end = get_usecs();
-    printf("%lu, %lu, %lu, %lu\n", total_byte_count, block_size * sizeof(T),
+    printf("%lu, %lu, %lu, %lu, ", total_byte_count, block_size * sizeof(T),
            end - start, uint64_t(total));
+    // pcm::print_output(pcm, cstates1, cstates2, sktstate1, sktstate2, sstate1,
+    //                   sstate2, pcm->getCPUModel(), true, true, true);
+    pcm::print_basic_metrics(pcm, sstate1, sstate2, true);
   }
 }
 
