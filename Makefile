@@ -2,14 +2,26 @@ OPT?=3
 VALGRIND?=0
 SANITIZE?=0
 CILK=0
+PARLAY?=0
+
+ifeq ($(CILK),1)
+PARLAY=0
+endif
+
+
+
 
 
 PARALLEL=0
 
-CFLAGS := -Wall -Wno-address-of-packed-member -Wextra -O$(OPT) -g  -std=c++20 -gdwarf-4
+CFLAGS := -Wall -Wno-address-of-packed-member -Wextra -O$(OPT) -g  -std=c++20 -gdwarf-4 -IParallelTools/ -Iparlaylib/include/
 
 LDFLAGS := -lrt -lm -lm -ldl 
 
+ifeq ($(PARLAY),1)
+LDFLAGS += -lpthread
+PARALLEL=1
+endif
 
 ifeq ($(CILK),1)
 CFLAGS += -fopencilk
@@ -38,7 +50,7 @@ CFLAGS += -march=native #-static
 endif
 
 
-DEFINES :=  -DCILK=$(CILK)
+DEFINES :=  -DCILK=$(CILK) -DPARLAY=$(PARLAY)
 SRC := run.cpp
 
 

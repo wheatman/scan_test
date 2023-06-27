@@ -1,4 +1,3 @@
-#include "reducer.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -14,12 +13,6 @@
 #include "pcm/src/utils.h"
 #include "pcm_helpers.h"
 
-#if CILK == 1
-#include <cilk/cilk.h>
-#else
-#define cilk_for for
-#endif
-
 static inline uint64_t get_usecs() {
   struct timeval st {};
   gettimeofday(&st, nullptr);
@@ -28,15 +21,17 @@ static inline uint64_t get_usecs() {
 
 template <class T> std::vector<T> create_random_data(size_t n) {
   std::vector<T> vec(n);
-  cilk_for(size_t i = 0; i < n; i++) { vec[i] = i; }
+  for (size_t i = 0; i < n; i++) {
+    vec[i] = i;
+  }
   return vec;
 }
 
 template <class T>
-T sum(const std::vector<T> &data, const std::vector<int> &order,
+T sum(const std::vector<T> &data, const std::vector<size_t> &order,
       size_t block_size) {
-  Reducer_sum<T> total = 0;
-  cilk_for(size_t j = 0; j < order.size(); j++) {
+  T total = 0;
+  for (size_t j = 0; j < order.size(); j++) {
     size_t el = order[j];
     T partial_total = 0;
     for (size_t i = el; i < el + block_size; i++) {
@@ -48,10 +43,12 @@ T sum(const std::vector<T> &data, const std::vector<int> &order,
   return total;
 }
 
-std::vector<int> create_order(size_t total_size, size_t block_size) {
+std::vector<size_t> create_order(size_t total_size, size_t block_size) {
   size_t order_length = total_size / block_size;
-  std::vector<int> order(order_length);
-  cilk_for(size_t i = 0; i < order_length; i++) { order[i] = i * block_size; }
+  std::vector<size_t> order(order_length);
+  for (size_t i = 0; i < order_length; i++) {
+    order[i] = i * block_size;
+  }
 
   std::random_device rd;
   std::mt19937 g(rd());

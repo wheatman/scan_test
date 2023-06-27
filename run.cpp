@@ -1,4 +1,3 @@
-#include "reducer.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -9,11 +8,8 @@
 #include <sys/time.h>
 #include <vector>
 
-#if CILK == 1
-#include <cilk/cilk.h>
-#else
-#define cilk_for for
-#endif
+#include "ParallelTools/parallel.h"
+#include "ParallelTools/reducer.h"
 
 static inline uint64_t get_usecs() {
   struct timeval st {};
@@ -24,23 +20,23 @@ static inline uint64_t get_usecs() {
 template <class T> std::vector<T> create_random_data(size_t n) {
 
   std::vector<T> v(n);
-  cilk_for(size_t i = 0; i < n; i++) { v[i] = i; }
+  ParallelTools::parallel_for(0, n, [&](size_t i) { v[i] = i; });
 
   return v;
 }
 
 template <class T>
-T sum(const std::vector<T> &data, const std::vector<size_t> order,
+T sum(const std::vector<T> &data, const std::vector<size_t> &order,
       size_t block_size) {
-  Reducer_sum<T> total = 0;
-  cilk_for(size_t j = 0; j < order.size(); j++) {
+  ParallelTools::Reducer_sum<T> total = 0;
+  ParallelTools::parallel_for(0, order.size(), [&](size_t j) {
     size_t el = order[j];
     T partial_total = 0;
     for (size_t i = el; i < el + block_size; i++) {
       partial_total += data[i];
     }
     total += partial_total;
-  }
+  });
 
   return total;
 }
@@ -48,7 +44,8 @@ T sum(const std::vector<T> &data, const std::vector<size_t> order,
 std::vector<size_t> create_order(size_t total_size, size_t block_size) {
   size_t order_length = total_size / block_size;
   std::vector<size_t> order(order_length);
-  cilk_for(size_t i = 0; i < order_length; i++) { order[i] = i * block_size; }
+  ParallelTools::parallel_for(0, order_length,
+                              [&](size_t i) { order[i] = i * block_size; });
 
   std::random_device rd;
   std::mt19937 g(rd());
