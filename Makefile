@@ -3,10 +3,10 @@ VALGRIND?=0
 SANITIZE?=0
 CILK=0
 PARLAY?=0
+PTHREAD?=0
+PARALLEL=0
 
-ifeq ($(CILK),1)
-PARLAY=0
-endif
+
 
 
 
@@ -14,30 +14,36 @@ endif
 
 PARALLEL=0
 
-CFLAGS := -Wall -Wno-address-of-packed-member -Wextra -O$(OPT) -g  -std=c++20 -gdwarf-4 -IParallelTools/ -Iparlaylib/include/
+CFLAGS := -Wall -Wno-address-of-packed-member -Wextra -O$(OPT) -g  -std=c++20 -gdwarf-4
 
 LDFLAGS := -lrt -lm -lm -ldl 
 
-ifeq ($(PARLAY),1)
-LDFLAGS += -lpthread
+ifeq ($(CILK),1)
+PARLAY=0
+PTHREAD=0
 PARALLEL=1
+CFLAGS += -IParallelTools/ -fopencilk
 endif
 
-ifeq ($(CILK),1)
-CFLAGS += -fopencilk
+ifeq ($(PARLAY),1)
+PTHREAD=0
 PARALLEL=1
+CFLAGS += -IParallelTools/ -Iparlaylib/include/
+LDFLAGS += -lpthread
+endif
+
+ifeq ($(PTHREAD),1)
+PARALLEL=1
+LDFLAGS += -lpthread
+PTHREAD_NUM_THREADS?=48
 endif
 
 
 ifeq ($(SANITIZE),1)
-ifeq ($(OPENMP),1)
-CFLAGS += -fsanitize=undefined,thread -fno-omit-frame-pointer
-else
 ifeq ($(CILK),1)
 CFLAGS += -fsanitize=cilk,undefined -fno-omit-frame-pointer
 else
 CFLAGS += -fsanitize=undefined,address -fno-omit-frame-pointer
-endif
 endif
 endif
 
@@ -50,7 +56,7 @@ CFLAGS += -march=native #-static
 endif
 
 
-DEFINES :=  -DCILK=$(CILK) -DPARLAY=$(PARLAY)
+DEFINES :=  -DCILK=$(CILK) -DPARLAY=$(PARLAY) -DPTHREAD=$(PTHREAD) -DPTHREAD_NUM_THREADS=$(PTHREAD_NUM_THREADS)
 SRC := run.cpp
 
 
