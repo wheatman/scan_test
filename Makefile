@@ -14,7 +14,7 @@ PARALLEL=0
 
 PARALLEL=0
 
-CFLAGS := -Wall -Wno-address-of-packed-member -Wextra -O$(OPT) -g  -std=c++20 -gdwarf-4
+CFLAGS := -Wall -Wno-address-of-packed-member -Wextra -O$(OPT) -g  -std=c++20 -gdwarf-4 -IParallelTools/
 
 LDFLAGS := -lrt -lm -lm -ldl 
 
@@ -22,13 +22,13 @@ ifeq ($(CILK),1)
 PARLAY=0
 PTHREAD=0
 PARALLEL=1
-CFLAGS += -IParallelTools/ -fopencilk
+CFLAGS += -fopencilk
 endif
 
 ifeq ($(PARLAY),1)
 PTHREAD=0
 PARALLEL=1
-CFLAGS += -IParallelTools/ -Iparlaylib/include/
+CFLAGS += -Iparlaylib/include/
 LDFLAGS += -lpthread
 endif
 

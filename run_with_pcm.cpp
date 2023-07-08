@@ -13,6 +13,15 @@
 #include "pcm/src/utils.h"
 #include "pcm_helpers.h"
 
+#if PTHREAD == 1
+#include "pthread_helpers.hpp"
+#else
+#include "ParallelTools/parallel.h"
+#include "ParallelTools/reducer.h"
+using ParallelTools::parallel_for;
+using ParallelTools::Reducer_sum;
+#endif
+
 static inline uint64_t get_usecs() {
   struct timeval st {};
   gettimeofday(&st, nullptr);
@@ -27,21 +36,44 @@ template <class T> std::vector<T> create_random_data(size_t n) {
   return vec;
 }
 
+#if PTHREAD == 1
 template <class T>
 T sum(const std::vector<T> &data, const std::vector<size_t> &order,
       size_t block_size) {
-  T total = 0;
-  for (size_t j = 0; j < order.size(); j++) {
+  std::array<T, PTHREAD_NUM_THREADS * 8> total = {0};
+  parallel_for_with_id(0, order.size(), [&](size_t id, size_t j) {
+    size_t el = order[j];
+    T partial_total = 0;
+    for (size_t i = el; i < el + block_size; i++) {
+      partial_total += data[i];
+    }
+    total[id * 8] += partial_total;
+  });
+  T t = 0;
+  for (size_t i = 0; i < PTHREAD_NUM_THREADS; i++) {
+    t += total[i * 8];
+  }
+
+  return t;
+}
+#else
+
+template <class T>
+T sum(const std::vector<T> &data, const std::vector<size_t> &order,
+      size_t block_size) {
+  Reducer_sum<T> total;
+  parallel_for(0, order.size(), [&](size_t j) {
     size_t el = order[j];
     T partial_total = 0;
     for (size_t i = el; i < el + block_size; i++) {
       partial_total += data[i];
     }
     total += partial_total;
-  }
+  });
 
   return total;
 }
+#endif
 
 std::vector<size_t> create_order(size_t total_size, size_t block_size) {
   size_t order_length = total_size / block_size;
