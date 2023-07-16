@@ -15,7 +15,7 @@
 
 #if PTHREAD == 1
 #include "pthread_helpers.hpp"
-#else
+#elif PARALLEL == 1
 #include "ParallelTools/parallel.h"
 #include "ParallelTools/reducer.h"
 using ParallelTools::parallel_for;
@@ -38,7 +38,7 @@ template <class T> std::vector<T> create_random_data(size_t n) {
 
 #if PTHREAD == 1
 template <class T>
-T sum(const std::vector<T> &data, const std::vector<size_t> &order,
+T sum(const std::vector<T> &data, const std::vector<uint32_t> &order,
       size_t block_size) {
   std::array<T, PTHREAD_NUM_THREADS * 8> total = {0};
   parallel_for_with_id(0, order.size(), [&](size_t id, size_t j) {
@@ -56,10 +56,10 @@ T sum(const std::vector<T> &data, const std::vector<size_t> &order,
 
   return t;
 }
-#else
+#elif PARALLEL == 1
 
 template <class T>
-T sum(const std::vector<T> &data, const std::vector<size_t> &order,
+T sum(const std::vector<T> &data, const std::vector<uint32_t> &order,
       size_t block_size) {
   Reducer_sum<T> total;
   parallel_for(0, order.size(), [&](size_t j) {
@@ -73,12 +73,34 @@ T sum(const std::vector<T> &data, const std::vector<size_t> &order,
 
   return total;
 }
+
+#else
+template <class T>
+T sum(const std::vector<T> &data, const std::vector<uint32_t> &order,
+      size_t block_size) {
+  T total = 0;
+  for (size_t j = 0; j < order.size(); j++) {
+    size_t el = order[j];
+    T partial_total = 0;
+    for (size_t i = el; i < el + block_size; i++) {
+      partial_total += data[i];
+    }
+    total += partial_total;
+  }
+
+  return total;
+}
+
 #endif
 
-std::vector<size_t> create_order(size_t total_size, size_t block_size) {
+std::vector<uint32_t> create_order(size_t total_size, size_t block_size) {
   size_t order_length = total_size / block_size;
-  std::vector<size_t> order(order_length);
-  for (size_t i = 0; i < order_length; i++) {
+  if (order_length > std::numeric_limits<uint32_t>::max()) {
+    std::cerr << "to big, make the order 64 bits instead of 32\n";
+    return {};
+  }
+  std::vector<uint32_t> order(order_length);
+  for (uint32_t i = 0; i < order_length; i++) {
     order[i] = i * block_size;
   }
 
